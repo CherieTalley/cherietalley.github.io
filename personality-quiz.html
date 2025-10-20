@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Personality Spectrum Quiz</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* deep navy */
+      --card:#0b1220;
+      --glass: rgba(255,255,255,0.06);
+      --accent1: #ff6b6b; /* coral */
+      --accent2: #ffd166; /* sunny */
+      --accent3: #6be3ff; /* cyan */
+      --accent4: #b993ff; /* lavender */
+      --text: #e6f0ff;
+      --muted: #a3b0c3;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      background: radial-gradient(ellipse at 10% 10%, rgba(185,100,255,0.07), transparent 8%),
+                  radial-gradient(ellipse at 90% 80%, rgba(255,200,90,0.04), transparent 8%),
+                  var(--bg);
+      color:var(--text);
+      overflow:hidden;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    /* floating objects container */
+    #floatArea{position:fixed;inset:0;pointer-events:none;z-index:0}
+    .float-item{
+      position:absolute;left:0;top:0;will-change:transform,opacity;
+      font-size:20px;opacity:0.9;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.35));
+    }
+
+    /* main app */
+    .app{
+      position:relative;z-index:3;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px;
+    }
+    .card{
+      width:960px;max-width:96%;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:16px;padding:28px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 10px 30px rgba(2,6,23,0.6);
+      backdrop-filter: blur(6px);
+    }
+
+    .header{display:flex;align-items:center;gap:18px}
+    .logo{
+      width:72px;height:72px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:28px;
+      background:linear-gradient(135deg,var(--accent1),var(--accent4));box-shadow:0 6px 18px rgba(107,140,255,0.12);
+    }
+    h1{margin:0;font-size:22px}
+    p.lead{margin:6px 0 0;color:var(--muted)}
+
+    .content{display:grid;grid-template-columns:1fr 380px;gap:22px;margin-top:18px}
+
+    /* left: quiz area */
+    .quiz{
+      background:var(--glass);padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);
+      min-height:420px;display:flex;flex-direction:column;justify-content:space-between;
+    }
+    .qbox{padding:16px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0));border-radius:10px}
+    .question{font-size:18px;margin-bottom:12px}
+    .answers{display:flex;flex-direction:column;gap:10px}
+    .btn{padding:10px 12px;border-radius:10px;border:none;background:transparent;color:var(--text);cursor:pointer;text-align:left;font-weight:600}
+    .btn:hover{transform:translateY(-2px)}
+    .btn[data-selected="true"]{box-shadow:0 6px 14px rgba(0,0,0,0.45);background:linear-gradient(90deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.04)}
+
+    .nav{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+    .nav .steps{color:var(--muted);font-size:14px}
+    .controls{display:flex;gap:10px}
+    .primary{background:linear-gradient(90deg,var(--accent3),var(--accent4));padding:10px 14px;border-radius:10px;border:none;color:#012;cursor:pointer;font-weight:700}
+    .secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:10px 12px;border-radius:10px;color:var(--text)}
+
+    /* right: results preview */
+    .aside{background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    .trait{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+    .trait .name{width:100px;font-weight:700}
+    .bar{flex:1;height:12px;background:rgba(255,255,255,0.03);border-radius:10px;overflow:hidden}
+    .bar > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent2),var(--accent1));border-radius:10px}
+    .score{width:36px;text-align:right;font-weight:700}
+
+    /* results screen */
+    .results-wrap{display:none;flex-direction:column;gap:18px}
+    .radar-wrap{height:260px}
+    .summary{background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:10px}
+
+    /* tiny helpers */
+    .muted{color:var(--muted)}
+    .small{font-size:13px}
+
+    /* responsive */
+    @media (max-width:880px){
+      .content{grid-template-columns:1fr}
+      .aside{order:2}
+    }
+
+    /* subtle entrance */
+    .fade-in{animation:fadeIn .6s ease both}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+    /* floating motion for random items (used for CSS fallback) */
+    @keyframes floaty{from{transform:translateY(0) rotate(0deg)}to{transform:translateY(-120px) rotate(15deg)}}
+
+    /* footer */
+    .footer{margin-top:12px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;align-items:center}
+
+  </style>
+</head>
+<body>
+  <div id="floatArea" aria-hidden="true"></div>
+  <div class="app">
+    <div class="card fade-in" role="application">
+      <div class="header">
+        <div class="logo">PS</div>
+        <div>
+          <h1>Personality Spectrum Quiz</h1>
+          <p class="lead">Interactive, bright, and fun — discover your mix across 8 traits.</p>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="quiz" id="quizArea">
+          <div id="questionSection" class="qbox">
+            <!-- Questions injected here -->
+          </div>
+
+          <div class="nav">
+            <div class="steps" id="stepText">Question 1 of 10</div>
+            <div class="controls">
+              <button class="secondary" id="restartBtn">Restart</button>
+              <button class="primary" id="nextBtn">Next ➜</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="aside">
+          <h3 style="margin-top:0">Live Preview</h3>
+          <div id="traitsList">
+            <!-- traits preview -->
+          </div>
+
+          <div style="margin-top:8px;" class="small muted">Final results will include a radar chart and shareable summary.</div>
+
+          <div style="margin-top:12px" class="results-wrap" id="resultsWrap">
+            <div class="radar-wrap" id="radarRoot"></div>
+            <div class="summary" id="summaryText"></div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="primary" id="shareBtn">Copy Summary</button>
+              <button class="secondary" id="downloadBtn">Download Report</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="footer">
+        <div>Made with <span aria-hidden>💖</span> • Bright colors & smooth interactions</div>
+        <div class="small muted">Save & open <code>index.html</code> in VS Code to run.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart.js CDN for radar visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // =========================
+    // Data & Questions
+    // =========================
+    const TRAITS = [
+      'Friendly','Mean','Compassionate','Loving','Sensual','Determined','Genius','Outgoing'
+    ];
+
+    // Each question has choices A,B,C,D mapping to trait score adjustments
+    // Keep mapping simple but expressive. Points range -2..+4 for variety
+    const QUESTIONS = [
+      {q: 'When someone needs help, you...', a:['Jump in and assist (A)','Offer advice (B)','Wait to be asked (C)','Ignore — they should manage (D)'], m:[{Friendly:2,Compassionate:3,Loving:1},{Genius:1,Determined:1},{Friendly:1},{Mean:2}]},
+      {q: 'Your idea of a fun Saturday night is...', a:['Hanging with friends','Reading & thinking','A romantic date','Learning something new'], m:[{Outgoing:3,Friendly:2},{Genius:3,Determined:1},{Loving:3, Sensual:2},{Genius:2,Determined:2}]},
+      {q: 'Someone insults you in public — you...', a:['Laugh it off','Retaliate cleverly','Stand up calmly','Get really upset and lash out'], m:[{Friendly:2},{Genius:2,Mean:2},{Compassionate:2,Determined:1},{Mean:3}]},
+      {q: 'You plan your future — you are...', a:['Practical and steady','Dreamy and romantic','Ambitious and focused','Curious and experimental'], m:[{Determined:3},{Loving:2,Compassionate:1},{Determined:2,Genius:2},{Genius:2,Outgoing:1}]},
+      {q: 'In a group conversation you usually...', a:['Make jokes and include everyone','Stay mostly quiet','Bring deep thoughtful points','Flirt and charm people'], m:[{Friendly:3,Outgoing:2},{Genius:1},{Genius:2,Compassionate:1},{Sensual:3,Loving:2}]},
+      {q: 'When making decisions, you rely on...', a:['Feelings','Cold logic','A mix of both','What friends say'], m:[{Compassionate:2,Loving:1},{Genius:3},{Genius:1,Compassionate:1},{Friendly:2}]},
+      {q: 'Which describes your bedside manner?', a:['Warm and gentle','Blunt but honest','Attentive and patient','Playful and teasing'], m:[{Compassionate:3,Loving:1},{Mean:1,Genius:1},{Compassionate:2,Friendly:1},{Sensual:2,Outgoing:2}]},
+      {q: 'What drives you most?', a:['Connection with others','Recognition and power','Understanding the world','A good time'], m:[{Friendly:2,Loving:2},{Mean:1,Determined:2},{Genius:3},{Outgoing:2,Sensual:1}]},
+      {q: 'Your friends would call you...', a:['Reliable and kind','Sassy and bold','Deep and clever','The life of the party'], m:[{Compassionate:2,Friendly:2},{Mean:2,Determined:1},{Genius:3},{Outgoing:3}]},
+      {q: 'You prefer to show affection by...', a:['Doing little favors','Giving direct compliments','Thoughtful gestures','Flirting & physical touch'], m:[{Friendly:2,Loving:2},{Compassionate:1},{Genius:1,Loving:2},{Sensual:3,Loving:1}]}
+    ];
+
+    // transform mapping into internal scoring template
+    function emptyScores(){
+      const s = {};
+      TRAITS.forEach(t => s[t]=0);
+      return s;
+    }
+
+    // =========================
+    // App State
+    // =========================
+    const state = {
+      idx: 0,
+      answers: Array(QUESTIONS.length).fill(null),
+      scores: emptyScores()
+    };
+
+    // =========================
+    // DOM refs
+    // =========================
+    const questionSection = document.getElementById('questionSection');
+    const stepText = document.getElementById('stepText');
+    const nextBtn = document.getElementById('nextBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const traitsList = document.getElementById('traitsList');
+    const resultsWrap = document.getElementById('resultsWrap');
+    const summaryText = document.getElementById('summaryText');
+    const shareBtn = document.getElementById('shareBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    // =========================
+    // Render functions
+    // =========================
+    function renderQuestion(){
+      const q = QUESTIONS[state.idx];
+      stepText.textContent = `Question ${state.idx+1} of ${QUESTIONS.length}`;
+
+      questionSection.innerHTML = `
+        <div class="question">${q.q}</div>
+        <div class="answers" role="list">
+          ${q.a.map((text,i)=>`<button class="btn" data-choice="${i}" role="listitem">${String.fromCharCode(65+i)}. ${text}</button>`).join('')}
+        </div>
+      `;
+
+      // highlight previously selected
+      const buttons = questionSection.querySelectorAll('.btn');
+      buttons.forEach(b=>{
+        b.addEventListener('click', onChoose);
+        const choice = Number(b.dataset.choice);
+        if(state.answers[state.idx]===choice) b.setAttribute('data-selected','true');
+      });
+
+      // small hint
+      const hint = document.createElement('div');
+      hint.className='small muted';
+      hint.style.marginTop='10px';
+      hint.textContent = 'Tip: pick the answer that feels most like you — no right or wrong.';
+      questionSection.appendChild(hint);
+    }
+
+    function renderTraitsPreview(){
+      traitsList.innerHTML = TRAITS.map(t=>{
+        return `<div class="trait"><div class="name">${t}</div><div class="bar"><i style="width:${state.scores[t]*8}%"></i></div><div class="score">${Math.round(state.scores[t])}</div></div>`
+      }).join('');
+    }
+
+    // =========================
+    // Interactions
+    // =========================
+    function onChoose(e){
+      const btn = e.currentTarget;
+      const choice = Number(btn.dataset.choice);
+      // store answer
+      state.answers[state.idx] = choice;
+      // mark selected
+      questionSection.querySelectorAll('.btn').forEach(b=>b.removeAttribute('data-selected'));
+      btn.setAttribute('data-selected','true');
+    }
+
+    nextBtn.addEventListener('click', ()=>{
+      // require answer
+      if(state.answers[state.idx]===null){
+        // subtle shake to indicate required
+        questionSection.animate([{transform:'translateX(0)'},{transform:'translateX(-8px)'},{transform:'translateX(8px)'},{transform:'translateX(0)'}],{duration:300});
+        return;
+      }
+
+      // apply scoring for this answer
+      applyScore(state.idx, state.answers[state.idx]);
+
+      if(state.idx < QUESTIONS.length-1){
+        state.idx += 1;
+        renderQuestion();
+        renderTraitsPreview();
+      } else {
+        // finish
+        showResults();
+      }
+    });
+
+    restartBtn.addEventListener('click', ()=>{
+      if(confirm('Restart the quiz? Your current answers will be cleared.')) resetAll();
+    });
+
+    shareBtn.addEventListener('click', ()=>{
+      const txt = generateSummaryText();
+      navigator.clipboard.writeText(txt).then(()=>{
+        shareBtn.textContent='Copied!';setTimeout(()=>shareBtn.textContent='Copy Summary',1600);
+      });
+    });
+
+    downloadBtn.addEventListener('click', ()=>{
+      const txt = generateSummaryText(true);
+      const blob = new Blob([txt],{type:'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');a.href=url;a.download='personality-report.txt';a.click();URL.revokeObjectURL(url);
+    });
+
+    // =========================
+    // Scoring logic
+    // =========================
+    function applyScore(qIdx, choiceIdx){
+      // map: for each trait adjustment object in QUESTIONS[qIdx].m[choiceIdx]
+      const map = QUESTIONS[qIdx].m[choiceIdx];
+      // map may include multiple trait keys; sum them
+      Object.keys(map).forEach(k=>{
+        if(state.scores[k]===undefined) state.scores[k]=0;
+        state.scores[k] += map[k];
+      });
+    }
+
+    function computeFinalPercentages(){
+      // normalize scores to 0-100 for display (simple linear normalize)
+      const values = Object.values(state.scores);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const result = {};
+      TRAITS.forEach(t=>{
+        // if all equal, show mid values
+        if(max===min){ result[t]=50; }
+        else result[t] = Math.round(((state.scores[t]-min)/(max-min))*100);
+      });
+      return result;
+    }
+
+    // =========================
+    // Results UI
+    // =========================
+    let chartInstance = null;
+    function showResults(){
+      // prepare final preview
+      const perc = computeFinalPercentages();
+      // animate bars
+      TRAITS.forEach(t=>{
+        const el = document.querySelectorAll('.trait').namedItem?.(t) || null;
+      });
+
+      // show radar
+      resultsWrap.style.display='block';
+      const ctx = document.createElement('canvas');
+      ctx.width = 400;ctx.height=260;
+      const root = document.getElementById('radarRoot');
+      root.innerHTML='';root.appendChild(ctx);
+
+      // radar data
+      const data = {
+        labels: TRAITS,
+        datasets: [{
+          label: 'Your Traits',
+          data: TRAITS.map(t=>perc[t]||50),
+          fill:true,
+          backgroundColor: 'rgba(107,227,255,0.15)',
+          borderColor: 'rgba(107,227,255,0.8)',
+          pointBackgroundColor: 'rgba(255,255,255,0.9)'
+        }]
+      };
+      if(chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx.getContext('2d'), {type:'radar',data,options:{responsive:true,scales:{r:{angleLines:{color:'rgba(255,255,255,0.06)'},grid:{color:'rgba(255,255,255,0.03)'},pointLabels:{color:'white'}}},plugins:{legend:{display:false}}}});
+
+      // final bars animation in preview
+      const final = computeFinalPercentages();
+      document.querySelectorAll('.trait').forEach((el,i)=>{
+        const name = TRAITS[i];
+        const bar = el.querySelector('.bar > i');
+        const score = el.querySelector('.score');
+        bar.animate([{width:'0%'},{width:final[name]+'%'}],{duration:800,fill:'forwards',easing:'cubic-bezier(.2,.9,.2,1)'});
+        score.textContent = final[name];
+      });
+
+      // summary text
+      summaryText.innerHTML = generateSummaryHTML(perc);
+
+      // scroll to results in aside on small screens
+      document.getElementById('radarRoot').scrollIntoView({behavior:'smooth'});
+
+      // change Next button to "Done"
+      nextBtn.disabled=true;nextBtn.textContent='Finished';
+    }
+
+    function generateSummaryHTML(perc){
+      // highest 2 traits
+      const sorted = Object.entries(perc).sort((a,b)=>b[1]-a[1]);
+      const top1 = sorted[0][0]; const top2 = sorted[1][0];
+      return `
+        <strong>Your top traits:</strong>
+        <div style="margin-top:6px"><em>${top1}</em> and <em>${top2}</em></div>
+        <div style="margin-top:8px" class="small">A quick read: You're ${top1.toLowerCase()} to a strong degree, with ${top2.toLowerCase()} as a secondary influence. Use those strengths to connect with others and grow where you want.</div>
+      `;
+    }
+
+    function generateSummaryText(forReport=false){
+      const perc = computeFinalPercentages();
+      let lines = ['Personality Spectrum Quiz Results','-------------------------------',''];
+      TRAITS.forEach(t=> lines.push(`${t}: ${perc[t]}%`));
+      lines.push('');
+      lines.push('Top traits: '+Object.entries(perc).sort((a,b)=>b[1]-a[1]).slice(0,2).map(x=>x[0]).join(', '));
+      if(forReport) lines.push('\nDetailed scores:\n'+JSON.stringify(state.scores, null, 2));
+      return lines.join('\n');
+    }
+
+    // =========================
+    // Reset
+    // =========================
+    function resetAll(){
+      state.idx=0;state.answers.fill(null);state.scores=emptyScores();
+      resultsWrap.style.display='none';nextBtn.disabled=false;nextBtn.textContent='Next ➜';
+      renderQuestion();renderTraitsPreview();
+    }
+
+    // =========================
+    // Floating background objects (hearts, stars, smileys)
+    // These are randomly generated and animated purely via JS/CSS transforms
+    // =========================
+    function makeFloatingObjects(count=40){
+      const area = document.getElementById('floatArea');
+      const types = ['💖','⭐','😊','✨','🌈','💫','💕','😄','🌟'];
+      for(let i=0;i<count;i++){
+        const el = document.createElement('div');
+        el.className='float-item';
+        const size = Math.floor(Math.random()*28)+12;
+        el.style.fontSize = size+'px';
+        el.textContent = types[Math.floor(Math.random()*types.length)];
+        // random start
+        const left = Math.random()*100;const top = 100 + Math.random()*40; // start a bit below to float upward
+        el.style.left = left + '%';
+        el.style.top = top + '%';
+        el.style.opacity = (0.45 + Math.random()*0.5).toString();
+        el.style.transform = `translateY(0) rotate(${Math.random()*40-20}deg)`;
+        // set custom animation properties via CSS variables
+        const duration = 10 + Math.random()*18;
+        const delay = Math.random()*-20;
+        el.animate([{transform:`translateY(0) rotate(0deg)`, opacity:el.style.opacity},{transform:`translateY(-300px) rotate(${Math.random()*90-45}deg)`, opacity:0}],{duration:duration*1000,iterations:Infinity,easing:'linear',delay:delay*1000});
+        area.appendChild(el);
+      }
+    }
+
+    // =========================
+    // Boot
+    // =========================
+    function boot(){
+      // render initial structure
+      renderQuestion();
+      renderTraitsPreview();
+      makeFloatingObjects(48);
+    }
+
+    boot();
+  </script>
+</body>
+</html>
